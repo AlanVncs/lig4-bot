@@ -13,7 +13,7 @@ const P2_WON = P2
 const DRAW_GAME = PN
 
 // Inteligência do algoritmo (Quando maior, mais inteligente)
-const MAX_DEPTH = 10
+const MAX_DEPTH = 8
 
 
 
@@ -29,44 +29,51 @@ const getComparator = (player) => {
 }
 
 // Verifica, na posição especificada, se houve vencedor vertical (Retorna o vencerdor ou false caso não haja)
-function getColWinner(matrix, i, j) {
-    if (j > 2) {
-        const sum = matrix[i][j] + matrix[i][j - 1] + matrix[i][j - 2] + matrix[i][j - 3]
-        return (Math.abs(sum) == 4) && matrix[i][j]
+function getColWinner(scenery, i, j) {
+    if (j < LINE_NUMBER - 3) {
+        const sum = scenery[i][j] + scenery[i][j + 1] + scenery[i][j + 2] + scenery[i][j + 3]
+        return (Math.abs(sum) == 4) && scenery[i][j]
     } else {
         return false
     }
 }
 
 // Verifica, na posição especificada, se houve vencedor horizontal (Retorna o vencerdor ou false caso não haja)
-function getRowWinner(matrix, i, j) {
+function getRowWinner(scenery, i, j) {
     if (i < COLUMN_NUMBER - 3) {
-        const sum = matrix[i][j] + matrix[i + 1][j] + matrix[i + 2][j] + matrix[i + 3][j]
-        return (Math.abs(sum) == 4) && matrix[i][j]
+        const sum = scenery[i][j] + scenery[i + 1][j] + scenery[i + 2][j] + scenery[i + 3][j]
+        return (Math.abs(sum) == 4) && scenery[i][j]
+    } else {
+        return false
+    }
+}
+
+// Verifica, na posição especificada, se houve vencedor diagonal / (Retorna o vencerdor ou false caso não haja)
+function getDiagAWinner(scenery, i, j) {
+    if (i < COLUMN_NUMBER - 3 && j < LINE_NUMBER - 3) {
+        const sum = scenery[i][j] + scenery[i + 1][j + 1] + scenery[i + 2][j + 2] + scenery[i + 3][j + 3]
+        return (Math.abs(sum) == 4) && scenery[i][j]
     } else {
         return false
     }
 }
 
 // Verifica, na posição especificada, se houve vencedor diagonal \ (Retorna o vencerdor ou false caso não haja)
-function getDiagAWinner(matrix, i, j) {
-    // TODO
-    return false
-}
-
-// Verifica, na posição especificada, se houve vencedor diagonal / (Retorna o vencerdor ou false caso não haja)
-function getDiagBWinner(matrix, i, j) {
-    // TODO
-    return false
+function getDiagBWinner(scenery, i, j) {
+    if (i > 2 && j < LINE_NUMBER - 3) {
+        const sum = scenery[i][j] + scenery[i - 1][j + 1] + scenery[i - 2][j + 2] + scenery[i - 3][j + 3]
+        return (Math.abs(sum) == 4) && scenery[i][j]
+    } else {
+        return false
+    }
 }
 
 // Retorna o resultado do jogo (-1, 0 ou 1) ou retorna false se o jogo ainda não estiver acabado
-function getWinner(matrix) {
+function getWinner(scenery) {
     for (let i = 0; i < COLUMN_NUMBER; i++) {
-        for (let j = LINE_NUMBER - 1; matrix[i][j]; j--) {
-            console.log(i, j);
-            if (getRowWinner(matrix, i, j) || getColWinner(matrix, i, j) || getDiagAWinner(matrix, i, j) || getDiagBWinner(matrix, i, j)) {
-                return matrix[i][j]
+        for (let j = 0; scenery[i][j]; j++) {
+            if (getRowWinner(scenery, i, j) || getColWinner(scenery, i, j) || getDiagAWinner(scenery, i, j) || getDiagBWinner(scenery, i, j)) {
+                return scenery[i][j]
             }
         }
     }
@@ -74,25 +81,78 @@ function getWinner(matrix) {
     return DRAW_GAME
 }
 
+function play(scenery, myMove, column) {
+    scenery[column].push(myMove)
+}
+
+function undoPlay(scenery, column) {
+    scenery[column].pop()
+}
+
 function convertScenery(scenery) {
     return scenery.map(column => {
-        return column.map(cell => {
-            if (cell === 0) {
-                return -1
-            } else if (cell === undefined) {
-                return 0
-            } else {
-                return cell
-            }
-        })
+        return column.filter(cell => {
+                return cell != undefined
+            })
+            .reverse()
+            .map(cell => {
+                if (cell === 0) {
+                    return -1
+                } else {
+                    return cell
+                }
+            })
     })
 }
 
-const AlanScript = (scenery, myMove) => {
-    myMove = (myMove == 0) ? -1 : 1
+function availableColumn(scenery, column) {
+    return !scenery[column][LINE_NUMBER - 1]
+}
+
+function minmax(scenery, player, depth = MAX_DEPTH) {
+    if (depth == 0) {
+        return { column: null, winner: DRAW_GAME }
+    }
+    const winner = getWinner(scenery)
+    if (winner) return { column: null, winner }
+
+    const newDepth = depth - 1
+    const moves = []
+    scenery.forEach((_, column) => {
+        if (availableColumn(scenery, column)) {
+            play(scenery, player, column)
+            const move = minmax(scenery, getEnemy(player), newDepth)
+            undoPlay(scenery, column)
+            move.column = column
+            moves.push(move)
+        }
+    })
+
+    if(depth == MAX_DEPTH){
+        console.log(moves);
+    }
+
+    // Ordena as possibilidades de acordo com o 'myMove'
+    const comparator = getComparator(player)
+    moves.sort(comparator)
+
+    const bestMove = moves[0]
+
+    return bestMove
+}
+
+const AlanScript = (scenery, player) => {
+    player = (player == 0) ? P1 : P2
     scenery = convertScenery(scenery)
 
-    return 0
+    // console.table(getWinner(scenery))
+    // return 0
+
+    const move = minmax(scenery, player)
+    console.log(move);
+    console.log('++');
+
+    return move.column
 }
 
 export default AlanScript
@@ -105,14 +165,34 @@ export default AlanScript
 //     })
 // }
 
+// function testToReal(matrix) {
+//     const transposed = transpose(matrix)
+//     const reversed = transposed.map(column => column.reverse())
+//     const filtered = reversed.map(column => {
+//         return column.filter(cell => cell)
+//     })
+
+//     return filtered
+// }
+
 // let c = [
-//     [0, 0, 0, 0, 0, 0, 0, 1],
-//     [0, 0, 0, 0, 0, 0, 0, 1],
-//     [0, 0, -1, 0, 0, 0, 0, 0],
-//     [0, 0, 1, 0, 0, 0, 0, 1],
-//     [1, 1, 1, -1, 0, 0, 0, -1],
-//     [1, 1, 1, -1, 0, -1, -1, -1]
+//     [0,  0,  0,  0,  0,  0,  0, -1],
+//     [0,  0,  0,  0,  0,  0, -1,  1],
+//     [0,  0,  0,  0,  0, -1,  1,  1],
+//     [0,  0,  0, -1, -1,  1, -1,  1],
+//     [0,  0, -1,  1, -1,  1,  1, -1],
+//     [0, -1, -1,  1, -1, -1, -1,  1]
 // ]
+
+// console.table(c)
+
+// const real = testToReal(c)
+// console.table(real);
+// // play(real, P2, 4)
+// // console.table(real);
+// console.log(getWinner(real));
+
+
 // console.table(c)
 // c = transpose(c)
 // console.table(c)
