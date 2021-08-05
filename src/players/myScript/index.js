@@ -8,25 +8,14 @@ const P2 = 1
 const PN = 0
 
 // Código de resultado
-const P1_WON = P1
-const P2_WON = P2
 const DRAW_GAME = PN
 
 // Inteligência do algoritmo (Quando maior, mais inteligente)
-const MAX_DEPTH = 8
-
-
-
-
+const MAX_DEPTH = 9
 
 
 // Retorna o código do player inimigo
 const getEnemy = (player) => -player
-
-// Retorna uma função de comparação de acordo com o player
-const getComparator = (player) => {
-    return (a, b) => (b.winner - a.winner) * player
-}
 
 // Verifica, na posição especificada, se houve vencedor vertical (Retorna o vencerdor ou false caso não haja)
 function getColWinner(scenery, i, j) {
@@ -81,14 +70,68 @@ function getWinner(scenery) {
     return DRAW_GAME
 }
 
+// Realiza uma jogada na coluna especificada
 function play(scenery, myMove, column) {
     scenery[column].push(myMove)
 }
 
+// Defaz a jogada na coluna especificada
 function undoPlay(scenery, column) {
     scenery[column].pop()
 }
 
+// Teste se uma coluna não está cheia
+function availableColumn(scenery, column) {
+    return !scenery[column][LINE_NUMBER - 1]
+}
+
+// Bruxaria
+function minmax(scenery, player, depth = MAX_DEPTH) {
+    if (depth == 0) {
+        return { column: null, winner: DRAW_GAME }
+    }
+    const winner = getWinner(scenery)
+    if (winner) return { column: null, winner }
+
+    const newDepth = depth - 1
+    const moves = []
+    for (let column = 0; column < scenery.length; column++) {
+        if (availableColumn(scenery, column)) {
+            play(scenery, player, column)
+            const move = minmax(scenery, getEnemy(player), newDepth)
+            undoPlay(scenery, column)
+            move.column = column
+            if (move.winner == player) return move
+            moves.push(move)
+        }
+    }
+
+    if (moves.length == 0) return { column: null, winner }
+
+    if (depth == MAX_DEPTH) {
+        const ties = []
+        for (let k = 0; k < moves.length; k++) {
+            if (moves[k].winner == 0) ties.push(moves[k])
+        }
+
+        if(ties.length > 0){
+            let index = Math.floor(Math.random() * ties.length)
+            return ties[index]
+        }
+        else{
+            let index = Math.floor(Math.random() * moves.length)
+            return moves[index]
+        }
+    }
+
+    for (let k = 0; k < moves.length; k++) {
+        if (moves[k].winner == 0) return moves[k]
+    }
+
+    return moves[0]
+}
+
+// Transforma o cenário recebido num estrutura melhor parar trabalhar
 function convertScenery(scenery) {
     return scenery.map(column => {
         return column.filter(cell => {
@@ -105,98 +148,40 @@ function convertScenery(scenery) {
     })
 }
 
-function availableColumn(scenery, column) {
-    return !scenery[column][LINE_NUMBER - 1]
-}
-
-function minmax(scenery, player, depth = MAX_DEPTH) {
-    if (depth == 0) {
-        return { column: null, winner: DRAW_GAME }
-    }
-    const winner = getWinner(scenery)
-    if (winner) return { column: null, winner }
-
-    const newDepth = depth - 1
-    const moves = []
-    scenery.forEach((_, column) => {
-        if (availableColumn(scenery, column)) {
-            play(scenery, player, column)
-            const move = minmax(scenery, getEnemy(player), newDepth)
-            undoPlay(scenery, column)
-            move.column = column
-            moves.push(move)
-        }
-    })
-
-    if(depth == MAX_DEPTH){
-        console.log(moves);
-    }
-
-    // Ordena as possibilidades de acordo com o 'myMove'
-    const comparator = getComparator(player)
-    moves.sort(comparator)
-
-    const bestMove = moves[0]
-
-    return bestMove
-}
-
+// Função principal
 const AlanScript = (scenery, player) => {
+    console.time('Tempo de execução')
     player = (player == 0) ? P1 : P2
     scenery = convertScenery(scenery)
-
-    // console.table(getWinner(scenery))
-    // return 0
-
     const move = minmax(scenery, player)
-    console.log(move);
-    console.log('++');
-
+    if(move.winner == player){
+        showBot()
+    }
+    console.timeEnd('Tempo de execução')
     return move.column
 }
 
+function showBot(){
+    if(!window.showingBotFlag){
+        window.showingBotFlag = true
+
+        const $gifContainer = document.createElement('div')
+        $gifContainer.style.position = 'absolute'
+        $gifContainer.style.bottom = '30px'
+        $gifContainer.style.left = '30px'
+
+        const $gif = document.createElement('img')
+        $gif.src= 'https://c.tenor.com/5LdshwUZiTYAAAAj/robot-excited.gif'
+
+        $gifContainer.appendChild($gif)
+
+        document.body.appendChild($gifContainer)
+
+        setTimeout(() => {
+            $gifContainer.remove()
+            window.showingBotFlag = false
+        }, 3500)
+    }
+}
+
 export default AlanScript
-
-// function transpose(matrix) {
-//     return matrix[0].map((_, colIndex) => {
-//         return matrix.map(row => {
-//             return row[colIndex]
-//         })
-//     })
-// }
-
-// function testToReal(matrix) {
-//     const transposed = transpose(matrix)
-//     const reversed = transposed.map(column => column.reverse())
-//     const filtered = reversed.map(column => {
-//         return column.filter(cell => cell)
-//     })
-
-//     return filtered
-// }
-
-// let c = [
-//     [0,  0,  0,  0,  0,  0,  0, -1],
-//     [0,  0,  0,  0,  0,  0, -1,  1],
-//     [0,  0,  0,  0,  0, -1,  1,  1],
-//     [0,  0,  0, -1, -1,  1, -1,  1],
-//     [0,  0, -1,  1, -1,  1,  1, -1],
-//     [0, -1, -1,  1, -1, -1, -1,  1]
-// ]
-
-// console.table(c)
-
-// const real = testToReal(c)
-// console.table(real);
-// // play(real, P2, 4)
-// // console.table(real);
-// console.log(getWinner(real));
-
-
-// console.table(c)
-// c = transpose(c)
-// console.table(c)
-
-// console.time()
-// console.log(getWinner(c));
-// console.timeEnd()
